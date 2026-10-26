@@ -5,7 +5,7 @@ a = Analysis(
     ['font_converter.py'],
     pathex=[],
     binaries=[],
-    datas=[('Assets/icon.ico', 'Assets')],
+    datas=[('Assets/icon.ico', 'Assets'), ('Assets/fonts/WantedSansVariable.ttf', 'Assets/fonts')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

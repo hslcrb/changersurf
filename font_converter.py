@@ -10,7 +10,9 @@ import threading
 import webbrowser
 import base64
 import io
+import ctypes
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import filedialog, messagebox
 from pathlib import Path
 
@@ -53,6 +55,17 @@ def _resource(rel):
     return os.path.join(base, rel)
 
 
+def load_custom_font():
+    """WantedSans Variable TTF를 Windows GDI에 등록, Tkinter에서 사용 가능하게."""
+    try:
+        path = _resource(os.path.join("Assets", "fonts", "WantedSansVariable.ttf"))
+        FR_PRIVATE = 0x10
+        ctypes.windll.gdi32.AddFontResourceExW(path, FR_PRIVATE, 0)
+        return "Wanted Sans Variable"
+    except Exception:
+        return "Segoe UI"
+
+
 def convert_font(src, dst_ext, dst_dir):
     src_ext = src.suffix.lower()
     if src_ext not in FLAVOR_MAP:
@@ -66,7 +79,7 @@ def convert_font(src, dst_ext, dst_dir):
     return out
 
 
-# ── 색상 (로고 남색 #3a4ca8 기반) ─────────────────────────────────────────
+# 색상 (로고 남색 #3a4ca8 기반)
 BG        = "#FFFFFF"
 BG2       = "#F4F6FB"
 CARD      = "#EDF0F8"
@@ -81,13 +94,6 @@ ERROR     = "#C0392B"
 WARNING   = "#B07C00"
 LOGBG     = "#F0F3FA"
 
-FONT_TITLE = ("Segoe UI", 21, "bold")
-FONT_SUB   = ("Segoe UI", 9)
-FONT_LABEL = ("Segoe UI", 9)
-FONT_BTN   = ("Segoe UI", 10, "bold")
-FONT_LOG   = ("Consolas", 9)
-FONT_SMALL = ("Segoe UI", 8)
-
 FORMATS = [".ttf", ".otf", ".woff", ".woff2"]
 FMT_INFO = {
     ".ttf":   ("TTF",   "TrueType"),
@@ -96,43 +102,63 @@ FMT_INFO = {
     ".woff2": ("WOFF2", "압축 웹 폰트"),
 }
 
+# 폰트 변수 (앱 초기화 후 설정)
+F_TITLE = None
+F_SUB   = None
+F_LABEL = None
+F_BTN   = None
+F_LOG   = None
+F_SMALL = None
 
-# ── Pill 버튼 (Canvas 기반) ───────────────────────────────────────────────
+
+def init_fonts(fam):
+    global F_TITLE, F_SUB, F_LABEL, F_BTN, F_LOG, F_SMALL
+    F_TITLE = (fam, 21, 'bold')
+    F_SUB   = (fam, 9)
+    F_LABEL = (fam, 9)
+    F_BTN   = (fam, 10, 'bold')
+    F_LOG   = ('Consolas', 9)
+    F_SMALL = (fam, 8)
+
+
+# Pill 버튼 (Canvas 기반, tkfont로 크기 측정)
 class PillButton(tk.Canvas):
-    """둥근 pill 형태 버튼."""
+    """진짜 둥근 Pill 형태 버튼."""
     def __init__(self, parent, text, command=None,
                  bg=None, fg=None, hover_bg=None,
                  font=None, padx=18, pady=8, radius=20,
                  **kw):
-        self._bg = bg or NAVY
-        self._fg = fg or '#FFFFFF'
+        self._bg       = bg or NAVY
+        self._fg       = fg or '#FFFFFF'
         self._hover_bg = hover_bg or NAVY_DK
-        self._font = font or FONT_BTN
-        self._text = text
-        self._command = command
-        self._padx = padx
-        self._pady = pady
-        self._radius = radius
+        self._font     = font or F_BTN
+        self._text     = text
+        self._command  = command
+        self._padx     = padx
+        self._pady     = pady
+        self._radius   = radius
         self._disabled = False
 
-        # 크기 측정용 임시 라벨
-        tmp = tk.Label(parent, text=text, font=self._font)
-        tmp.update_idletasks()
-        tw = tmp.winfo_reqwidth()
-        th = tmp.winfo_reqheight()
-        tmp.destroy()
+        # tkfont으로 텍스트 크기 측정 (임시 위젯 없이)
+        mf = tkfont.Font(family=self._font[0],
+                         size=self._font[1],
+                         weight=self._font[2] if len(self._font) > 2 else 'normal')
+        tw = mf.measure(text)
+        th = mf.metrics('linespace')
 
-        w = tw + padx * 2
-        h = th + pady * 2
+        self._w = tw + padx * 2
+        self._h = th + pady * 2
 
-        super().__init__(parent, width=w, height=h,
+        try:
+            parent_bg = parent.cget('bg')
+        except Exception:
+            parent_bg = BG
+
+        super().__init__(parent, width=self._w, height=self._h,
                          bd=0, highlightthickness=0,
-                         bg=parent.cget('bg'), **kw)
+                         bg=parent_bg, **kw)
 
-        self._w = w
-        self._h = h
         self._draw(self._bg)
-
         self.bind('<Enter>', self._on_enter)
         self.bind('<Leave>', self._on_leave)
         self.bind('<Button-1>', self._on_click)
@@ -140,12 +166,12 @@ class PillButton(tk.Canvas):
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
         pts = [
-            x1+r, y1,  x2-r, y1,
-            x2, y1,    x2, y1+r,
-            x2, y2-r,  x2, y2,
-            x2-r, y2,  x1+r, y2,
-            x1, y2,    x1, y2-r,
-            x1, y1+r,  x1, y1,
+            x1+r, y1,   x2-r, y1,
+            x2,   y1,   x2,   y1+r,
+            x2,   y2-r, x2,   y2,
+            x2-r, y2,   x1+r, y2,
+            x1,   y2,   x1,   y2-r,
+            x1,   y1+r, x1,   y1,
         ]
         return self.create_polygon(pts, smooth=True, **kw)
 
@@ -154,7 +180,7 @@ class PillButton(tk.Canvas):
         r = min(self._radius, self._h // 2)
         self._rounded_rect(0, 0, self._w, self._h, r,
                             fill=color, outline='')
-        self._tid = self.create_text(
+        self.create_text(
             self._w // 2, self._h // 2,
             text=self._text, fill=self._fg,
             font=self._font, anchor='center'
@@ -181,65 +207,66 @@ class PillButton(tk.Canvas):
 
     def set_disabled(self, val):
         self._disabled = val
-        col = TEXT_DIM if val else self._bg
-        self._fg_col = '#FFFFFF' if not val else TEXT_DIM
         self._draw(CARD if val else self._bg)
 
     def set_text(self, text):
         self._text = text
-        self._draw(self._bg)
+        self._draw(self._bg if not self._disabled else CARD)
 
 
-# ── 포맷 선택 버튼 (pill, 토글) ──────────────────────────────────────────
+# 포맷 토글 버튼 (둥근 사각형)
 class FormatToggle(tk.Canvas):
-    """포맷 선택용 둥근 사각형 토글 버튼."""
+    """포맷 선택용 둥근 사각형 토글."""
     def __init__(self, parent, name, sub, command=None, **kw):
-        self._name = name
-        self._sub = sub
+        self._name    = name
+        self._sub     = sub
         self._command = command
-        self._active = False
-        w, h = 110, 56
+        self._active  = False
+        w, h = 112, 58
         self._w, self._h = w, h
+        try:
+            parent_bg = parent.cget('bg')
+        except Exception:
+            parent_bg = BG
         super().__init__(parent, width=w, height=h,
                          bd=0, highlightthickness=0,
-                         bg=parent.cget('bg'), **kw)
+                         bg=parent_bg, **kw)
         self._draw()
         self.bind('<Button-1>', self._on_click)
-        self.bind('<Enter>', self._on_enter)
-        self.bind('<Leave>', self._on_leave)
+        self.bind('<Enter>',    self._on_enter)
+        self.bind('<Leave>',    self._on_leave)
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
         pts = [
-            x1+r, y1,  x2-r, y1,
-            x2, y1,    x2, y1+r,
-            x2, y2-r,  x2, y2,
-            x2-r, y2,  x1+r, y2,
-            x1, y2,    x1, y2-r,
-            x1, y1+r,  x1, y1,
+            x1+r, y1,   x2-r, y1,
+            x2,   y1,   x2,   y1+r,
+            x2,   y2-r, x2,   y2,
+            x2-r, y2,   x1+r, y2,
+            x1,   y2,   x1,   y2-r,
+            x1,   y1+r, x1,   y1,
         ]
         return self.create_polygon(pts, smooth=True, **kw)
 
     def _draw(self, hover=False):
         self.delete('all')
         if self._active:
-            bg_c = NAVY
-            fg_c = '#FFFFFF'
-            sub_c = '#BEC8F0'
+            bg_c, fg_c, sub_c = NAVY, '#FFFFFF', '#BEC8F0'
         elif hover:
-            bg_c = CARD
-            fg_c = NAVY
-            sub_c = TEXT_DIM
+            bg_c, fg_c, sub_c = CARD, NAVY, TEXT_DIM
         else:
-            bg_c = BG2
-            fg_c = TEXT
-            sub_c = TEXT_DIM
-        self._rounded_rect(0, 0, self._w, self._h, 14,
-                            fill=bg_c, outline=BORDER if not self._active else NAVY)
+            bg_c, fg_c, sub_c = BG2, TEXT, TEXT_DIM
+        outline = NAVY if self._active else BORDER
+        self._rounded_rect(1, 1, self._w-1, self._h-1, 14,
+                            fill=bg_c, outline=outline)
         cx = self._w // 2
         self.create_text(cx, 20, text=self._name,
-                          fill=fg_c, font=("Segoe UI", 11, "bold"), anchor='center')
-        self.create_text(cx, 38, text=self._sub,
-                          fill=sub_c, font=FONT_SMALL, anchor='center')
+                          fill=fg_c,
+                          font=(F_BTN[0], 11, 'bold'),
+                          anchor='center')
+        self.create_text(cx, 39, text=self._sub,
+                          fill=sub_c,
+                          font=F_SMALL,
+                          anchor='center')
 
     def _on_click(self, e):
         if self._command:
@@ -258,13 +285,17 @@ class FormatToggle(tk.Canvas):
         self._draw()
 
 
-# ── 앱 ──────────────────────────────────────────────────────────────────
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+
+        # WantedSans 폰트 등록 (창 생성 후)
+        self._fam = load_custom_font()
+        init_fonts(self._fam)
+
         self.title('ChangerSurf  |  폰트 변환기')
-        self.geometry('860x700')
-        self.minsize(720, 580)
+        self.geometry('880x700')
+        self.minsize(740, 590)
         self.configure(bg=BG)
         self.resizable(True, True)
 
@@ -283,11 +314,11 @@ class App(tk.Tk):
             except Exception:
                 pass
 
-        self.src_files = []
-        self.dst_format = tk.StringVar(value='.woff2')
-        self.dst_dir = None
-        self.same_dir = tk.BooleanVar(value=True)
-        self._thread = None
+        self.src_files   = []
+        self.dst_format  = tk.StringVar(value='.woff2')
+        self.dst_dir     = None
+        self.same_dir    = tk.BooleanVar(value=True)
+        self._thread     = None
         self._fmt_toggles = {}
 
         self._build_ui()
@@ -299,46 +330,45 @@ class App(tk.Tk):
         if not HAS_BROTLI:
             self._log('[경고] brotli 미설치 (WOFF2 불가): pip install brotli', 'warn')
         if HAS_FONTTOOLS and HAS_BROTLI:
-            self._log('[준비] 파일을 추가하고 출력 형식을 선택한 후 변환을 누르세요.', 'ok')
+            self._log('[준비] 파일 추가 -> 형식 선택 -> 변환 시작!', 'ok')
 
     def _build_ui(self):
-        # ── 헤더 ─────────────────────────────────────────────────────────
+        # 헤더
         hdr = tk.Frame(self, bg=BG)
         hdr.pack(fill='x', padx=30, pady=(22, 0))
 
         if self._logo_img:
-            logo_lbl = tk.Label(hdr, image=self._logo_img, bg=BG, cursor='hand2')
-            logo_lbl.pack(side='left', padx=(0, 14))
-            logo_lbl.bind('<Button-1>',
+            ll = tk.Label(hdr, image=self._logo_img, bg=BG, cursor='hand2')
+            ll.pack(side='left', padx=(0, 14))
+            ll.bind('<Button-1>',
                 lambda e: webbrowser.open('https://rheehose.com'))
-            logo_lbl.bind('<Enter>',
-                lambda e: logo_lbl.configure(bg=BG2))
-            logo_lbl.bind('<Leave>',
-                lambda e: logo_lbl.configure(bg=BG))
+            ll.bind('<Enter>', lambda e: ll.configure(bg=BG2))
+            ll.bind('<Leave>', lambda e: ll.configure(bg=BG))
 
-        title_col = tk.Frame(hdr, bg=BG)
-        title_col.pack(side='left')
-        tk.Label(title_col, text='ChangerSurf',
-                 font=FONT_TITLE, bg=BG, fg=NAVY).pack(anchor='w')
-        tk.Label(title_col, text='폰트 형식 변환기  |  TTF  OTF  WOFF  WOFF2',
-                 font=FONT_SUB, bg=BG, fg=TEXT_DIM).pack(anchor='w')
+        tc = tk.Frame(hdr, bg=BG)
+        tc.pack(side='left')
+        tk.Label(tc, text='ChangerSurf',
+                 font=F_TITLE, bg=BG, fg=NAVY).pack(anchor='w')
+        tk.Label(tc, text='폰트 형식 변환기  |  TTF  OTF  WOFF  WOFF2',
+                 font=F_SUB, bg=BG, fg=TEXT_DIM).pack(anchor='w')
 
-        link = tk.Label(hdr, text='rheehose.com',
-                        font=('Segoe UI', 9, 'underline'),
+        lnk = tk.Label(hdr, text='rheehose.com',
+                        font=(self._fam, 9, 'underline'),
                         bg=BG, fg=NAVY_LT, cursor='hand2')
-        link.pack(side='right', padx=(0, 4))
-        link.bind('<Button-1>',
+        lnk.pack(side='right', padx=(0, 4))
+        lnk.bind('<Button-1>',
             lambda e: webbrowser.open('https://rheehose.com'))
-        link.bind('<Enter>', lambda e: link.configure(fg=NAVY))
-        link.bind('<Leave>', lambda e: link.configure(fg=NAVY_LT))
+        lnk.bind('<Enter>', lambda e: lnk.configure(fg=NAVY))
+        lnk.bind('<Leave>', lambda e: lnk.configure(fg=NAVY_LT))
 
-        tk.Frame(self, bg=BORDER, height=1).pack(fill='x', padx=30, pady=(16, 0))
+        tk.Frame(self, bg=BORDER, height=1).pack(
+            fill='x', padx=30, pady=(16, 0))
 
-        # ── 본문 ─────────────────────────────────────────────────────────
+        # 본문
         body = tk.Frame(self, bg=BG)
         body.pack(fill='both', expand=True, padx=30, pady=14)
 
-        # 왼쪽: 파일 목록
+        # 왼쪽 파일 목록
         left = tk.Frame(body, bg=CARD,
                         highlightbackground=BORDER, highlightthickness=1)
         left.pack(side='left', fill='both', expand=True)
@@ -346,16 +376,16 @@ class App(tk.Tk):
         lrow = tk.Frame(left, bg=CARD)
         lrow.pack(fill='x', padx=16, pady=(14, 6))
         tk.Label(lrow, text='입력 파일',
-                 font=FONT_BTN, bg=CARD, fg=NAVY).pack(side='left')
+                 font=F_BTN, bg=CARD, fg=NAVY).pack(side='left')
         tk.Label(lrow, text='TTF / OTF / WOFF / WOFF2',
-                 font=FONT_LABEL, bg=CARD, fg=TEXT_DIM).pack(side='left', padx=10)
+                 font=F_LABEL, bg=CARD, fg=TEXT_DIM).pack(side='left', padx=10)
 
         lf = tk.Frame(left, bg=CARD)
         lf.pack(fill='both', expand=True, padx=16, pady=(0, 10))
         self.file_lb = tk.Listbox(
             lf, bg=BG, fg=TEXT,
             selectbackground=NAVY, selectforeground='#fff',
-            font=FONT_LOG, bd=0, highlightthickness=0,
+            font=F_LOG, bd=0, highlightthickness=0,
             activestyle='none', relief='flat',
         )
         sb = tk.Scrollbar(lf, orient='vertical',
@@ -366,62 +396,61 @@ class App(tk.Tk):
 
         fbtn = tk.Frame(left, bg=CARD)
         fbtn.pack(fill='x', padx=16, pady=(0, 14))
-
         PillButton(fbtn, '+ 파일 추가', command=self._add_files,
                    bg=NAVY, fg='#fff', hover_bg=NAVY_DK,
-                   font=FONT_SMALL, padx=14, pady=6, radius=20
+                   font=F_SMALL, padx=14, pady=6, radius=20
                    ).pack(side='left', padx=(0, 6))
         PillButton(fbtn, '- 선택 삭제', command=self._remove_sel,
                    bg=BG2, fg=NAVY, hover_bg=CARD,
-                   font=FONT_SMALL, padx=14, pady=6, radius=20
+                   font=F_SMALL, padx=14, pady=6, radius=20
                    ).pack(side='left', padx=(0, 6))
         PillButton(fbtn, '전체 지우기', command=self._clear_files,
                    bg=BG2, fg=TEXT_DIM, hover_bg=CARD,
-                   font=FONT_SMALL, padx=14, pady=6, radius=20
+                   font=F_SMALL, padx=14, pady=6, radius=20
                    ).pack(side='left')
 
-        # 오른쪽: 설정
-        right = tk.Frame(body, bg=BG, width=246)
+        # 오른쪽 설정
+        right = tk.Frame(body, bg=BG, width=252)
         right.pack(side='right', fill='y', padx=(16, 0))
         right.pack_propagate(False)
 
         tk.Label(right, text='출력 형식',
-                 font=FONT_BTN, bg=BG, fg=TEXT).pack(anchor='w', pady=(2, 8))
+                 font=F_BTN, bg=BG, fg=TEXT).pack(anchor='w', pady=(2, 8))
 
-        fg_frame = tk.Frame(right, bg=BG)
-        fg_frame.pack(fill='x')
+        fgf = tk.Frame(right, bg=BG)
+        fgf.pack(fill='x')
         for i, ext in enumerate(FORMATS):
             r, c = divmod(i, 2)
             name, sub = FMT_INFO[ext]
-            tog = FormatToggle(fg_frame, name, sub,
+            tog = FormatToggle(fgf, name, sub,
                                command=lambda e=ext: self._select_fmt(e))
             tog.grid(row=r, column=c, padx=4, pady=4, sticky='nsew')
-            fg_frame.columnconfigure(c, weight=1)
+            fgf.columnconfigure(c, weight=1)
             self._fmt_toggles[ext] = tog
         self._select_fmt('.woff2')
 
         tk.Frame(right, bg=BORDER, height=1).pack(fill='x', pady=14)
         tk.Label(right, text='저장 위치',
-                 font=FONT_BTN, bg=BG, fg=TEXT).pack(anchor='w', pady=(0, 8))
+                 font=F_BTN, bg=BG, fg=TEXT).pack(anchor='w', pady=(0, 8))
 
         tk.Checkbutton(
             right, text='원본 파일과 같은 폴더',
             variable=self.same_dir, command=self._toggle_dst,
             bg=BG, fg=TEXT, selectcolor=BG,
             activebackground=BG, activeforeground=NAVY,
-            font=FONT_LABEL, cursor='hand2',
+            font=F_LABEL, cursor='hand2',
         ).pack(anchor='w')
 
         self._dst_pill = PillButton(
             right, '출력 폴더 선택', command=self._pick_dst,
             bg=BG2, fg=TEXT_DIM, hover_bg=CARD,
-            font=FONT_LABEL, padx=14, pady=6, radius=20
+            font=F_LABEL, padx=14, pady=6, radius=20
         )
         self._dst_pill.pack(fill='x', pady=8)
         self._dst_pill.set_disabled(True)
 
-        self.dst_lbl = tk.Label(right, text='--', font=FONT_SMALL,
-                                bg=BG, fg=TEXT_DIM, wraplength=218, justify='left')
+        self.dst_lbl = tk.Label(right, text='--', font=F_SMALL,
+                                bg=BG, fg=TEXT_DIM, wraplength=222, justify='left')
         self.dst_lbl.pack(anchor='w')
 
         tk.Frame(right, bg=BORDER, height=1).pack(fill='x', pady=14)
@@ -429,33 +458,33 @@ class App(tk.Tk):
         self.cvt_pill = PillButton(
             right, '변환 시작', command=self._start,
             bg=NAVY, fg='#FFFFFF', hover_bg=NAVY_DK,
-            font=('Segoe UI', 13, 'bold'), padx=20, pady=14, radius=30
+            font=(self._fam, 13, 'bold'), padx=20, pady=14, radius=30
         )
         self.cvt_pill.pack(fill='x')
 
         self.prog_var = tk.StringVar(value='')
         tk.Label(right, textvariable=self.prog_var,
-                 font=FONT_SMALL, bg=BG, fg=TEXT_DIM,
-                 wraplength=218, justify='left').pack(anchor='w', pady=6)
+                 font=F_SMALL, bg=BG, fg=TEXT_DIM,
+                 wraplength=222, justify='left').pack(anchor='w', pady=6)
 
-        # ── 로그 패널 ──────────────────────────────────────────────────
+        # 로그 패널
         log_frame = tk.Frame(self, bg=LOGBG,
                              highlightbackground=BORDER, highlightthickness=1)
         log_frame.pack(fill='x', padx=30, pady=(0, 18))
 
-        log_hdr = tk.Frame(log_frame, bg=LOGBG)
-        log_hdr.pack(fill='x', padx=12, pady=(8, 2))
-        tk.Label(log_hdr, text='변환 로그',
-                 font=FONT_LABEL, bg=LOGBG, fg=TEXT_DIM).pack(side='left')
-        PillButton(log_hdr, '지우기', command=self._clear_log,
+        lh = tk.Frame(log_frame, bg=LOGBG)
+        lh.pack(fill='x', padx=12, pady=(8, 2))
+        tk.Label(lh, text='변환 로그',
+                 font=F_LABEL, bg=LOGBG, fg=TEXT_DIM).pack(side='left')
+        PillButton(lh, '지우기', command=self._clear_log,
                    bg=BG2, fg=TEXT_DIM, hover_bg=CARD,
-                   font=FONT_SMALL, padx=10, pady=3, radius=12
+                   font=F_SMALL, padx=10, pady=3, radius=12
                    ).pack(side='right')
 
         self.log_text = tk.Text(
             log_frame, height=6,
             bg=LOGBG, fg=TEXT,
-            font=FONT_LOG, bd=0, relief='flat',
+            font=F_LOG, bd=0, relief='flat',
             state='disabled', wrap='word',
             highlightthickness=0,
         )
@@ -522,7 +551,7 @@ class App(tk.Tk):
             return
         if not self.same_dir.get() and self.dst_dir is None:
             messagebox.showwarning('폴더 미선택',
-                '출력 폴더를 선택하거나\n원본 폴더 옵션을 활성화하세요.')
+                '출력 폴더를 선택하거나 원본 폴더 옵션을 활성화하세요.')
             return
         if self._thread and self._thread.is_alive():
             return
@@ -533,7 +562,7 @@ class App(tk.Tk):
 
     def _do_convert(self):
         dst_ext = self.dst_format.get()
-        files = list(self.src_files)
+        files   = list(self.src_files)
         ok = fail = 0
         for idx, src in enumerate(files, 1):
             self.prog_var.set(str(idx) + '/' + str(len(files)) + '  ' + src.name)
@@ -544,19 +573,22 @@ class App(tk.Tk):
                 dst_dir = src.parent if self.same_dir.get() else self.dst_dir
                 dst_dir.mkdir(parents=True, exist_ok=True)
                 out = convert_font(src, dst_ext, dst_dir)
-                sz = out.stat().st_size / 1024
-                self._log('[완료] ' + src.name + ' -> ' + out.name
-                          + ' (' + f'{sz:.1f}' + ' KB)', 'ok')
+                sz  = out.stat().st_size / 1024
+                self._log(
+                    '[완료] ' + src.name + ' -> ' + out.name
+                    + ' (' + f'{sz:.1f}' + ' KB)', 'ok')
                 ok += 1
             except Exception as e:
                 self._log('[오류] ' + src.name + ' : ' + str(e), 'err')
                 fail += 1
         self.prog_var.set('완료  성공:' + str(ok) + '  실패:' + str(fail))
-        self._log('-- 완료: 성공 ' + str(ok) + '개, 실패 ' + str(fail) + '개 --', 'info')
-        self.after(0, lambda: (
-            self.cvt_pill.set_text('변환 시작'),
-            self.cvt_pill.set_disabled(False)
-        ))
+        self._log(
+            '-- 완료: 성공 ' + str(ok) + '개, 실패 ' + str(fail) + '개 --', 'info')
+        self.after(0, self._reset_convert_btn)
+
+    def _reset_convert_btn(self):
+        self.cvt_pill.set_text('변환 시작')
+        self.cvt_pill.set_disabled(False)
 
     def _log(self, msg, tag=''):
         def _w():
