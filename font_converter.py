@@ -126,11 +126,11 @@ F_SMALL = None
 
 def init_fonts(fam):
     global F_TITLE, F_SUB, F_LABEL, F_BTN, F_LOG, F_SMALL
-    F_TITLE = (fam, 21, 'bold')
+    F_TITLE = (fam, 20, 'bold')
     F_SUB   = (fam, 9)
     F_LABEL = (fam, 9)
     F_BTN   = (fam, 10, 'bold')
-    F_LOG   = ('Consolas', 9)
+    F_LOG   = (fam, 9)
     F_SMALL = (fam, 8)
 
 
@@ -245,10 +245,10 @@ class PillButton(tk.Canvas):
 class FormatToggle(tk.Canvas):
     """포맷 선택용 둥근 사각형 토글."""
     def __init__(self, parent, name, sub, command=None, **kw):
-        self._name    = name
-        self._sub     = sub
-        self._command = command
-        self._active  = False
+        self.fmt_title = name
+        self.fmt_sub   = sub
+        self._command  = command
+        self._active   = False
         w, h = 112, 58
         self._width_px, self._height_px = w, h
         try:
@@ -295,11 +295,11 @@ class FormatToggle(tk.Canvas):
                             fill=bg_c, outline=outline)
         cx = self._width_px // 2
         cy = self._height_px // 2
-        self.create_text(cx, cy - 9, text=self._name,
+        self.create_text(cx, cy - 9, text=self.fmt_title,
                           fill=fg_c,
                           font=(F_BTN[0], 11, 'bold'),
                           anchor='center')
-        self.create_text(cx, cy + 10, text=self._sub,
+        self.create_text(cx, cy + 10, text=self.fmt_sub,
                           fill=sub_c,
                           font=F_SMALL,
                           anchor='center')
@@ -330,10 +330,9 @@ class App(tk.Tk):
         init_fonts(self._fam)
 
         self.title('ChangerSurf  |  폰트 변환기')
-        self.geometry('880x700')
-        self.minsize(740, 590)
+        self.geometry('820x540')
         self.configure(bg=BG)
-        self.resizable(True, True)
+        self.resizable(False, False)
 
         try:
             ico = _resource(os.path.join('Assets', 'icon.ico'))
@@ -422,7 +421,7 @@ class App(tk.Tk):
             lf, bg=BG, fg=TEXT,
             selectbackground=NAVY, selectforeground='#fff',
             font=F_LOG, bd=0, highlightthickness=0,
-            activestyle='none', relief='flat',
+            activestyle='none', relief='flat', height=7,
         )
         sb = tk.Scrollbar(lf, orient='vertical',
                           command=self.file_lb.yview, bg=CARD)
@@ -506,10 +505,10 @@ class App(tk.Tk):
         # 로그 패널
         log_frame = tk.Frame(self, bg=LOGBG,
                              highlightbackground=BORDER, highlightthickness=1)
-        log_frame.pack(fill='x', padx=30, pady=(0, 18))
+        log_frame.pack(fill='x', padx=30, pady=(0, 14))
 
         lh = tk.Frame(log_frame, bg=LOGBG)
-        lh.pack(fill='x', padx=12, pady=(8, 2))
+        lh.pack(fill='x', padx=12, pady=(6, 2))
         tk.Label(lh, text='변환 로그',
                  font=F_LABEL, bg=LOGBG, fg=TEXT_DIM).pack(side='left')
         PillButton(lh, '지우기', command=self._clear_log,
@@ -518,13 +517,13 @@ class App(tk.Tk):
                    ).pack(side='right')
 
         self.log_text = tk.Text(
-            log_frame, height=6,
+            log_frame, height=4,
             bg=LOGBG, fg=TEXT,
             font=F_LOG, bd=0, relief='flat',
             state='disabled', wrap='word',
             highlightthickness=0,
         )
-        self.log_text.pack(fill='x', padx=12, pady=(0, 10))
+        self.log_text.pack(fill='x', padx=12, pady=(0, 8))
         self.log_text.tag_config('ok',   foreground=SUCCESS)
         self.log_text.tag_config('err',  foreground=ERROR)
         self.log_text.tag_config('warn', foreground=WARNING)
