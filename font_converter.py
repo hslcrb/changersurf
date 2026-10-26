@@ -340,7 +340,7 @@ class ModeSwitch(tk.Canvas):
             self._thumb_x += dx * 0.4
             self._draw()
             self.after(16, self._step_anim)
-
+ 
 
 # 물리 튕기는 쫀득한 화살표 (Spring & Squish/Stretch Physics)
 class SpringArrow(tk.Canvas):
