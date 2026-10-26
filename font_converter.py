@@ -160,15 +160,15 @@ class PillButton(tk.Canvas):
         tw = mf.measure(text)
         th = mf.metrics('linespace')
 
-        self._w = tw + padx * 2
-        self._h = th + pady * 2
+        self._width_px = tw + padx * 2
+        self._height_px = th + pady * 2
 
         try:
             parent_bg = parent.cget('bg')
         except Exception:
             parent_bg = BG
 
-        super().__init__(parent, width=self._w, height=self._h,
+        super().__init__(parent, width=self._width_px, height=self._height_px,
                          bd=0, highlightthickness=0,
                          bg=parent_bg, **kw)
 
@@ -181,9 +181,9 @@ class PillButton(tk.Canvas):
 
     def _on_configure(self, e):
         if e.width > 1 and e.height > 1:
-            if e.width != self._w or e.height != self._h:
-                self._w = e.width
-                self._h = e.height
+            if e.width != self._width_px or e.height != self._height_px:
+                self._width_px = e.width
+                self._height_px = e.height
                 self._draw(self._current_color)
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
@@ -199,11 +199,11 @@ class PillButton(tk.Canvas):
 
     def _draw(self, color):
         self.delete('all')
-        r = min(self._radius, self._h // 2)
-        self._rounded_rect(0, 0, self._w, self._h, r,
+        r = min(self._radius, self._height_px // 2)
+        self._rounded_rect(0, 0, self._width_px, self._height_px, r,
                             fill=color, outline='')
         self.create_text(
-            self._w // 2, self._h // 2,
+            self._width_px // 2, self._height_px // 2,
             text=self._text, fill=self._fg,
             font=self._font, anchor='center'
         )
@@ -250,7 +250,7 @@ class FormatToggle(tk.Canvas):
         self._command = command
         self._active  = False
         w, h = 112, 58
-        self._w, self._h = w, h
+        self._width_px, self._height_px = w, h
         try:
             parent_bg = parent.cget('bg')
         except Exception:
@@ -266,9 +266,9 @@ class FormatToggle(tk.Canvas):
 
     def _on_configure(self, e):
         if e.width > 1 and e.height > 1:
-            if e.width != self._w or e.height != self._h:
-                self._w = e.width
-                self._h = e.height
+            if e.width != self._width_px or e.height != self._height_px:
+                self._width_px = e.width
+                self._height_px = e.height
                 self._draw()
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
@@ -291,10 +291,10 @@ class FormatToggle(tk.Canvas):
         else:
             bg_c, fg_c, sub_c = BG2, TEXT, TEXT_DIM
         outline = NAVY if self._active else BORDER
-        self._rounded_rect(1, 1, self._w-1, self._h-1, 14,
+        self._rounded_rect(1, 1, self._width_px-1, self._height_px-1, 14,
                             fill=bg_c, outline=outline)
-        cx = self._w // 2
-        cy = self._h // 2
+        cx = self._width_px // 2
+        cy = self._height_px // 2
         self.create_text(cx, cy - 9, text=self._name,
                           fill=fg_c,
                           font=(F_BTN[0], 11, 'bold'),
