@@ -59,11 +59,24 @@ def load_custom_font():
     """WantedSans Variable TTF를 Windows GDI에 등록, Tkinter에서 사용 가능하게."""
     try:
         path = _resource(os.path.join("Assets", "fonts", "WantedSansVariable.ttf"))
-        FR_PRIVATE = 0x10
-        ctypes.windll.gdi32.AddFontResourceExW(path, FR_PRIVATE, 0)
-        return "Wanted Sans Variable"
+        if os.path.exists(path):
+            ctypes.windll.gdi32.AddFontResourceExW(ctypes.c_wchar_p(path), 0x10, 0)
+            ctypes.windll.gdi32.AddFontResourceW(ctypes.c_wchar_p(path))
+            ctypes.windll.user32.SendMessageW(0xFFFF, 0x001D, 0, 0)
     except Exception:
-        return "Segoe UI"
+        pass
+
+    try:
+        fams = tkfont.families()
+        for cand in ["Wanted Sans", "Wanted Sans Variable", "WantedSans", "WantedSansVariable"]:
+            if cand in fams:
+                return cand
+        for f in fams:
+            if "wanted" in f.lower():
+                return f
+    except Exception:
+        pass
+    return "Wanted Sans"
 
 
 def convert_font(src, dst_ext, dst_dir):
@@ -138,6 +151,7 @@ class PillButton(tk.Canvas):
         self._pady     = pady
         self._radius   = radius
         self._disabled = False
+        self._current_color = self._bg
 
         # tkfont으로 텍스트 크기 측정 (임시 위젯 없이)
         mf = tkfont.Font(family=self._font[0],
@@ -158,11 +172,19 @@ class PillButton(tk.Canvas):
                          bd=0, highlightthickness=0,
                          bg=parent_bg, **kw)
 
-        self._draw(self._bg)
+        self._draw(self._current_color)
         self.bind('<Enter>', self._on_enter)
         self.bind('<Leave>', self._on_leave)
         self.bind('<Button-1>', self._on_click)
         self.bind('<ButtonRelease-1>', self._on_release)
+        self.bind('<Configure>', self._on_configure)
+
+    def _on_configure(self, e):
+        if e.width > 1 and e.height > 1:
+            if e.width != self._w or e.height != self._h:
+                self._w = e.width
+                self._h = e.height
+                self._draw(self._current_color)
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
         pts = [
@@ -188,30 +210,35 @@ class PillButton(tk.Canvas):
 
     def _on_enter(self, e):
         if not self._disabled:
-            self._draw(self._hover_bg)
+            self._current_color = self._hover_bg
+            self._draw(self._current_color)
             self.configure(cursor='hand2')
 
     def _on_leave(self, e):
         if not self._disabled:
-            self._draw(self._bg)
+            self._current_color = self._bg
+            self._draw(self._current_color)
 
     def _on_click(self, e):
         if not self._disabled:
-            self._draw(self._hover_bg)
+            self._current_color = self._hover_bg
+            self._draw(self._current_color)
 
     def _on_release(self, e):
         if not self._disabled:
-            self._draw(self._bg)
+            self._current_color = self._bg
+            self._draw(self._current_color)
             if self._command:
                 self._command()
 
     def set_disabled(self, val):
         self._disabled = val
-        self._draw(CARD if val else self._bg)
+        self._current_color = CARD if val else self._bg
+        self._draw(self._current_color)
 
     def set_text(self, text):
         self._text = text
-        self._draw(self._bg if not self._disabled else CARD)
+        self._draw(self._current_color)
 
 
 # 포맷 토글 버튼 (둥근 사각형)
@@ -235,6 +262,14 @@ class FormatToggle(tk.Canvas):
         self.bind('<Button-1>', self._on_click)
         self.bind('<Enter>',    self._on_enter)
         self.bind('<Leave>',    self._on_leave)
+        self.bind('<Configure>', self._on_configure)
+
+    def _on_configure(self, e):
+        if e.width > 1 and e.height > 1:
+            if e.width != self._w or e.height != self._h:
+                self._w = e.width
+                self._h = e.height
+                self._draw()
 
     def _rounded_rect(self, x1, y1, x2, y2, r, **kw):
         pts = [
@@ -259,11 +294,12 @@ class FormatToggle(tk.Canvas):
         self._rounded_rect(1, 1, self._w-1, self._h-1, 14,
                             fill=bg_c, outline=outline)
         cx = self._w // 2
-        self.create_text(cx, 20, text=self._name,
+        cy = self._h // 2
+        self.create_text(cx, cy - 9, text=self._name,
                           fill=fg_c,
                           font=(F_BTN[0], 11, 'bold'),
                           anchor='center')
-        self.create_text(cx, 39, text=self._sub,
+        self.create_text(cx, cy + 10, text=self._sub,
                           fill=sub_c,
                           font=F_SMALL,
                           anchor='center')
