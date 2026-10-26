@@ -109,10 +109,10 @@ LOGBG     = "#F0F3FA"
 
 FORMATS = [".ttf", ".otf", ".woff", ".woff2"]
 FMT_INFO = {
-    ".ttf":   ("TTF",   "TrueType"),
-    ".otf":   ("OTF",   "OpenType"),
+    ".ttf":   ("TTF",   "트루타입"),
+    ".otf":   ("OTF",   "오픈타입"),
     ".woff":  ("WOFF",  "웹 폰트"),
-    ".woff2": ("WOFF2", "압축 웹 폰트"),
+    ".woff2": ("WOFF2", "압축 웹폰트"),
 }
 
 # 폰트 변수 (앱 초기화 후 설정)
@@ -126,12 +126,12 @@ F_SMALL = None
 
 def init_fonts(fam):
     global F_TITLE, F_SUB, F_LABEL, F_BTN, F_LOG, F_SMALL
-    F_TITLE = (fam, 20, 'bold')
-    F_SUB   = (fam, 9)
-    F_LABEL = (fam, 9)
-    F_BTN   = (fam, 10, 'bold')
-    F_LOG   = (fam, 9)
-    F_SMALL = (fam, 8)
+    F_TITLE = (fam, 22, 'bold')
+    F_SUB   = (fam, 11)
+    F_LABEL = (fam, 11)
+    F_BTN   = (fam, 12, 'bold')
+    F_LOG   = (fam, 11)
+    F_SMALL = (fam, 10)
 
 
 # Pill 버튼 (Canvas 기반, tkfont로 크기 측정)
@@ -295,11 +295,11 @@ class FormatToggle(tk.Canvas):
                             fill=bg_c, outline=outline)
         cx = self._width_px // 2
         cy = self._height_px // 2
-        self.create_text(cx, cy - 9, text=self.fmt_title,
+        self.create_text(cx, cy - 10, text=self.fmt_title,
                           fill=fg_c,
-                          font=(F_BTN[0], 11, 'bold'),
+                          font=(F_BTN[0], 13, 'bold'),
                           anchor='center')
-        self.create_text(cx, cy + 10, text=self.fmt_sub,
+        self.create_text(cx, cy + 11, text=self.fmt_sub,
                           fill=sub_c,
                           font=F_SMALL,
                           anchor='center')
@@ -330,7 +330,7 @@ class App(tk.Tk):
         init_fonts(self._fam)
 
         self.title('ChangerSurf  |  폰트 변환기')
-        self.geometry('820x540')
+        self.geometry('860x570')
         self.configure(bg=BG)
         self.resizable(False, False)
 
@@ -388,7 +388,7 @@ class App(tk.Tk):
                  font=F_SUB, bg=BG, fg=TEXT_DIM).pack(anchor='w')
 
         lnk = tk.Label(hdr, text='rheehose.com',
-                        font=(self._fam, 9, 'underline'),
+                        font=(self._fam, 10, 'underline'),
                         bg=BG, fg=NAVY_LT, cursor='hand2')
         lnk.pack(side='right', padx=(0, 4))
         lnk.bind('<Button-1>',
@@ -493,7 +493,7 @@ class App(tk.Tk):
         self.cvt_pill = PillButton(
             right, '변환 시작', command=self._start,
             bg=NAVY, fg='#FFFFFF', hover_bg=NAVY_DK,
-            font=(self._fam, 13, 'bold'), padx=20, pady=14, radius=30
+            font=(self._fam, 14, 'bold'), padx=20, pady=14, radius=30
         )
         self.cvt_pill.pack(fill='x')
 
